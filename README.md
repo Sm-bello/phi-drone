@@ -27,9 +27,7 @@ This is **not** a novel detection algorithm and does not claim to be — it's an
 
 ## Architecture
 
-<p align="center">
-  <img src="docs/architecture.png" alt="PHI-Drone pipeline architecture" width="850">
-</p>
+<img width="1693" height="929" alt="architecture" src="https://github.com/user-attachments/assets/45c0a671-257d-4e3a-9e1d-082c1ed54136" />
 
 | Stage | Component | Role |
 |---|---|---|
