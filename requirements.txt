@@ -1,0 +1,21 @@
+# Core detection and vision
+ultralytics>=8.0.200
+opencv-python>=4.8.0
+mss>=9.0.1
+pygetwindow>=0.0.9
+
+# MAVLink telemetry
+pymavlink>=2.4.37
+MAVProxy>=1.8.70
+
+# Data handling
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Utilities
+pyyaml>=6.0
+tqdm>=4.65.0
+
+# Optional: GPU acceleration (uncomment if CUDA available)
+# torch>=2.0.0+cu118
+# torchvision>=0.15.0+cu118
