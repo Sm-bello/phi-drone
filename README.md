@@ -1,92 +1,131 @@
-# PHI-DRONE
+<div align="center">
 
-> **The Digital Twin Reconnaissance Hub** — Simulating UAV Vision and Flight in a Unified Pipeline
+# PHI-Drone
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![YOLOv8](https://img.shields.io/badge/YOLO-v8-8A2BE2.svg)](https://github.com/ultralytics/ultralytics)
-[![ArduPilot](https://img.shields.io/badge/ArduPilot-SITL-green.svg)](https://ardupilot.org/dev/docs/sitl-simulator-software-in-the-loop.html)
+### Digital Twin Reconnaissance Hub — Simulating UAV Vision and Flight in a Unified Pipeline
 
----
+A home-built simulation testbed fusing **ArduPilot SITL** flight physics, **FlightGear** visualization, and a **YOLOv8** aerial object detector under one **MAVLink**-synchronized telemetry layer — no physical airframe required.
 
-## Overview
+[![Status](https://img.shields.io/badge/status-prototype%20%2F%20validated-blue)]()
+[![Python](https://img.shields.io/badge/python-3.11-informational)]()
+[![Platform](https://img.shields.io/badge/platform-Windows%20%2B%20WSL2-lightgrey)]()
+[![License](https://img.shields.io/badge/license-MIT-green)]()
 
-**PHI-DRONE** is a fully simulated UAV reconnaissance hub that couples high-fidelity flight dynamics with a live computer-vision detection pipeline — **zero physical hardware required**.
-
-The system integrates three independently-developed open-source technologies into a single working pipeline:
-
-1. **ArduPilot SITL** — executes the real ArduCopter flight-control firmware against a simulated vehicle model
-2. **FlightGear** — renders the 3D visual environment, driven by SITL's Flight Dynamics Model (FDM) output over UDP
-3. **YOLOv8 + VisDrone** — performs real-time object detection on screen-captured frames of the simulated onboard view
-
-A background MAVLink telemetry listener continuously records the simulated vehicle's GPS position and altitude, merging every detection event with the vehicle's true position at the moment of detection.
+</div>
 
 ---
 
-## 📄 Citation
+## What this is
 
-If you use PHI-DRONE in your research, please cite:
+PHI-Drone runs a **real ArduPilot flight-control stack** (the same firmware used on physical autopilots) against a simulated vehicle, renders that flight live in **FlightGear**, and feeds the rendered onboard view into a **YOLOv8n detector fine-tuned on VisDrone** — with every detection stamped by a live GPS position pulled independently over MAVLink.
 
-```bibtex
-@article{sani2026phidrone,
-  title={PHI-DRONE: The Digital Twin Reconnaissance Hub --- Simulating UAV Vision and Flight in a Unified Pipeline},
-  author={Sani, Mohammed Bello and Ibrahim, Tumsah Usman and Abbe, Godwin},
-  journal={Aerospace Science and Technology},
-  year={2026},
-  publisher={Elsevier}
-}
+It exists to answer one question cheaply, before any hardware is procured: *what does a UAV's detector actually see along a real, physically-modeled flight path?*
+
+This is **not** a novel detection algorithm and does not claim to be — it's an integration testbed, and the engineering effort of making independently-developed open-source tools interoperate reliably is the actual contribution. See [Known Issues & Engineering Log](#known-issues--engineering-log) for the honest account of what broke and how it was fixed.
+
+---
+
+## Architecture
+
+<p align="center">
+  <img src="docs/architecture.png" alt="PHI-Drone pipeline architecture" width="850">
+</p>
+
+| Stage | Component | Role |
+|---|---|---|
+| Flight physics | ArduPilot SITL (WSL2) | Executes real ArduCopter firmware against a simulated vehicle model |
+| Visualization | FlightGear 2024.1 (Windows) | Renders the vehicle's onboard view, driven entirely by SITL over UDP — performs no physics of its own |
+| Vision | YOLOv8n, VisDrone fine-tune | Real-time inference on screen-captured frames of the rendered view |
+| Telemetry | pymavlink, background thread | Streams live GPS position into every detection, independent of the vision loop |
+| Output | CSV + video + snapshots | Unified, timestamped log for post-mission review |
+
+SITL and FlightGear communicate over a UDP Flight Dynamics Model (FDM) socket (port `5503`); the detection script's MAVLink listener runs on a separate UDP output (port `14551`) so it never contends with MAVProxy's own connection. The two channels — vision and telemetry — only converge at the moment a detection is logged, so a blocking network read can never stall frame capture.
+
+---
+
+## Status
+
+Verified independently. Fusion into one continuous live feed is the active engineering phase — stated plainly, not smoothed over.
+
+| Component | Status |
+|---|---|
+| Flight control (SITL build, arm/takeoff/guided/circle) | ✅ Verified |
+| Aerial detection (YOLOv8n VisDrone, static + live imagery) | ✅ Verified |
+| Telemetry fusion (MAVLink → CSV) | ✅ Verified |
+| FlightGear ↔ SITL visual sync | ⚠️ In progress — see engineering log |
+| Live dashboard | ⬜ Not started |
+| Object-level geolocation | ⬜ Not started |
+| Quantitative evaluation (precision/recall/mAP, latency) | ⬜ Not started |
+
+---
+
+## Repository structure
+
+```
+phi-drone/
+├── scripts/
+│   ├── detect_and_log_unified.py   # Screen-capture + YOLOv8 inference + MAVLink telemetry fusion
+│   ├── analyze_session.py          # Post-session metrics: detections, confidence, frame rate
+│   ├── launch_drone_sim.bat        # One-command orchestration: FlightGear → SITL → detection
+│   └── shutdown_drone_sim.bat      # Clean shutdown, releases all ports
+├── config/
+│   └── telemetry_in.xml            # Optional FlightGear generic-protocol motor telemetry (cosmetic only)
+├── docs/
+│   └── architecture.png
+├── requirements.txt
+├── .gitignore
+├── LICENSE
+└── README.md
 ```
 
 ---
 
-## 🏗️ Architecture
+## Prerequisites
 
+- **Windows 10/11** with **WSL2** (Ubuntu 24.04 / Noble), configured with **mirrored networking**
+- **FlightGear 2024.1** installed natively on Windows
+- **Python 3.11** (Conda environment recommended)
+- **ArduPilot** source, built for the `sitl` board target
+- A GPU is not required — inference runs adequately on CPU with frame-skipping enabled
+
+### Enable WSL2 mirrored networking
+
+Create `C:\Users\<you>\.wslconfig`:
+```ini
+[wsl2]
+networkingMode=mirrored
 ```
-┌─────────────────┐     UDP FDM      ┌─────────────────┐
-│  ArduPilot SITL │ ───────────────> │    FlightGear   │
-│  (WSL2 Ubuntu)  │                  │  (Windows GUI)  │
-└─────────────────┘                  └────────┬────────┘
-       │                                      │
-       │ MAVLink                              │ Screen Capture
-       │                                      ▼
-       │                              ┌─────────────────┐
-       │                              │   YOLOv8 Inference
-       │                              │  (Windows Python)
-       │                              └────────┬────────┘
-       │                                       │
-       │         Telemetry Fusion              │ Detection Events
-       │ <─────────────────────────────────────┤
-       │                                       │
-       ▼                                       ▼
-┌─────────────────────────────────────────────────────────┐
-│                    Unified CSV Log                       │
-│  [timestamp, class, confidence, bbox, lat, lon, alt]   │
-└─────────────────────────────────────────────────────────┘
-```
+Then `wsl --shutdown` and reopen your terminal. This is what allows `127.0.0.1` to resolve identically between Windows and WSL2 — no manual IP lookup, no network bridge needed.
 
 ---
 
-## 🚀 Quick Start
+## Setup
 
-### Prerequisites
-
-| Component | Version | Notes |
-|-----------|---------|-------|
-| Windows 10/11 | 21H2+ | WSL2 required for SduPilot SITL |
-| WSL2 Ubuntu | 24.04 (Noble) | Mirrored networking mode recommended |
-| Python | 3.10+ | Conda environment recommended |
-| FlightGear | 2024.1 | [Download](https://www.flightgear.org/download/) |
-| ArduPilot SITL | Latest | Clone from [GitHub](https://github.com/ArduPilot/ardupilot) |
-| YOLOv8 Weights | VisDrone fine-tune | [Download checkpoint](https://github.com/ultralytics/ultralytics) |
-
-### 1. Clone the Repository
+### 1. Build ArduPilot SITL (inside WSL2 Ubuntu)
 
 ```bash
-git clone https://github.com/username/phi-drone.git
-cd phi-drone
+cd ~
+git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git
+cd ardupilot
+Tools/environment_install/install-prereqs-ubuntu.sh -y
+. ~/.profile
+./waf configure --board sitl
+./waf copter
 ```
 
-### 2. Install Python Dependencies
+> If your connection is unstable, prefer `aria2c` over plain `git clone`/`curl` — segmented, independently-retried downloads survive packet loss far better than a single continuous stream. See the engineering log below.
+
+### 2. Get the ArduPilot-bundled aircraft model into FlightGear
+
+ArduPilot ships its own FlightGear-compatible quadcopter model — you do **not** need to search FlightGear's aircraft hangar.
+
+```bash
+# from Windows, in File Explorer:
+\\wsl.localhost\Ubuntu\home\<you>\ardupilot\Tools\autotest\aircraft
+```
+Copy the `arducopter` folder to a local Windows path, e.g. `C:\FlightGearAircraft\arducopter`.
+
+### 3. Python environment
 
 ```bash
 conda create -n aerospace python=3.11
@@ -94,157 +133,98 @@ conda activate aerospace
 pip install -r requirements.txt
 ```
 
-### 3. Build ArduPilot SITL (inside WSL2)
+### 4. Configure paths
 
-```bash
-cd ~/ardupilot
-./waf configure --board sitl
-./waf copter
+Open `scripts/detect_and_log_unified.py` and confirm:
+```python
+OUTPUT_DIR = r"C:\path\to\your\detections\folder"
+MAVLINK_CONNECTION = "udp:127.0.0.1:14551"
+```
+Open `scripts/launch_drone_sim.bat` and confirm the FlightGear install path and aircraft folder path match your machine.
+
+---
+
+## Usage
+
+```cmd
+scripts\launch_drone_sim.bat
 ```
 
-### 4. Launch the Full Pipeline
+This sequences: cleanup of any leftover processes → port availability check → FlightGear launch → SITL launch (with a dedicated MAVLink output on `14551` for the detection script) → a **mandatory manual verification checkpoint**.
 
-```bash
-# From the project root (Windows side)
-cd phi-drone/src
-launch_drone_sim.bat
-```
+**At the checkpoint:** type `takeoff 10` in the MAVProxy terminal and confirm FlightGear's own on-screen altitude climbs in sync with MAVProxy's console. Do not proceed to detection until this is confirmed — this single check is what catches a stale/ghost FlightGear process before it silently corrupts a session (see engineering log).
 
-This will:
-1. Start FlightGear with the ArduCopter model
-2. Launch SITL inside WSL2
-3. Start MAVProxy ground control
-4. Launch the detection and telemetry fusion script
+Once confirmed, the detection script starts, opens a live preview window, and begins logging.
 
-### 5. Run a Mission
+### Flying a mission
 
-In the MAVProxy console:
+In the MAVProxy terminal:
 ```
 mode guided
 arm throttle
 takeoff 10
-guided -35.363 149.170 30
+guided <lat> <lon> <alt>
 ```
+Or right-click any point on the MAVProxy Map → *Fly Here*.
 
-### 6. Shutdown
-
-```bash
-shutdown_drone_sim.bat
-```
-
----
-
-## 📁 Repository Structure
+### Output
 
 ```
-phi-drone/
-├── README.md                          # This file
-├── LICENSE                            # MIT License
-├── requirements.txt                   # Python dependencies
-├── .gitignore                         # Git ignore rules
-│
-├── src/                               # Source code
-│   ├── detect_and_log_unified.py     # Main detection + telemetry script
-│   ├── config.py                      # Configuration constants
-│   ├── launch_drone_sim.bat          # Windows batch launcher
-│   ├── shutdown_drone_sim.bat        # Windows batch shutdown
-│   └── utils/
-│       ├── telemetry_worker.py        # MAVLink background thread
-│       ├── screen_capture.py          # FlightGear window capture
-│       └── logger.py                  # CSV + video logging utilities
-│
-├── docs/                              # Documentation
-│   ├── MANUSCRIPT.md                  # Link to published paper
-│   └── SETUP_GUIDE.md                # Detailed installation walkthrough
-│
-├── data/
-│   └── sample_missions/               # Example CSV logs and videos
-│
-└── figures/                           # Paper figures (PDF/EPS)
-    ├── fig1_architecture.pdf
-    ├── fig2_detection_overlay.pdf
-    └── ...
+detections/
+├── session_<timestamp>.mp4          # Full annotated video
+├── detections_<timestamp>.csv       # timestamp, class, confidence, bbox, drone_lat, drone_lon, drone_alt
+└── snapshots/
+    └── detection_<timestamp>_<frame>.jpg
 ```
 
----
-
-## ⚙️ Configuration
-
-Edit `src/config.py` to adjust:
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `CAPTURE_FPS` | 15 | Screen capture frame rate |
-| `FRAME_SKIP` | 5 | Inference every N frames (3 fps effective) |
-| `CONFIDENCE_THRESHOLD` | 0.25 | Minimum detection confidence |
-| `FLIGHTGEAR_WINDOW` | "FlightGear" | Window title for pygetwindow |
-| `MAVLINK_CONNECTION` | "tcp:127.0.0.1:14550" | MAVLink endpoint |
-| `MODEL_PATH` | `"yolov8n-visdrone.pt"` | Path to YOLOv8 weights |
+Run `scripts/analyze_session.py <csv> <video>` for a quick summary (total detections, mean confidence, measured frame rate).
 
 ---
 
-## 📊 Sample Output
+## Known Issues & Engineering Log
 
-After a mission, the following artefacts are generated in `data/sample_missions/`:
+Documented here deliberately, because a pipeline that admits what broke is more trustworthy than one that doesn't.
 
-- **`detection_log_YYYYMMDD_HHMMSS.csv`** — structured detection + telemetry data
-- **`mission_video_YYYYMMDD_HHMMSS.avi`** — full annotated video recording
-- **`snapshots/`** — individual JPEG frames for each detection event
-
-Example CSV row:
-
-```csv
-timestamp,class,confidence,x1,y1,x2,y2,drone_lat,drone_lon,drone_alt
-2026-07-12T14:32:15.342,car,0.67,245,189,312,234,-35.363212,149.170341,30.2
-```
-
----
-
-## 🛠️ Development Environment
-
-- **OS:** Windows 11 + WSL2 Ubuntu 24.04
-- **Hardware:** HP ProBook 440 G10 (Intel i5, 16 GB RAM, integrated graphics)
-- **Python:** 3.11 via Conda
-- **Network:** WSL2 mirrored networking mode (allows `localhost` bridging)
+| Issue | Root Cause | Resolution |
+|---|---|---|
+| **Detector reading the desktop, not the sim** | Uncalibrated/stale screen-capture region — window geometry queried before Windows finished repositioning the window | Programmatic window-geometry verification (`pygetwindow`) + mandatory pre-flight `capture_region_check.jpg` + bounds checking that aborts loudly rather than silently capturing garbage |
+| **FlightGear frozen while SITL genuinely flew** | A minimized "ghost" FlightGear instance from a prior session held the UDP FDM port binding | Explicit process enumeration/kill of `fgfs.exe` and all SITL/MAVProxy processes before every session; port-in-use check via `netstat` in the launcher |
+| **Repeated `git clone`/download failures under packet loss** | HTTP/2 stream cancellation on an unstable connection (~3% packet loss) | Forced HTTP/1.1 + increased `http.postBuffer`; fell back to `aria2c` segmented, independently-retried downloads for large transfers |
+| **Git submodules silently empty after tarball extraction** | A tarball export has no git object/index metadata, so `git submodule update --init` had nothing to act on | `git reset --hard origin/master` against a properly fetched commit to populate submodule gitlinks before retrying the submodule update |
+| **Detection loop stalling / choppy video** | Blocking MAVLink telemetry reads sharing the same loop as frame capture | Telemetry moved to a dedicated background daemon thread updating a lock-protected shared state; capture loop never blocks on network I/O |
+| **Video/CSV corrupted after Ctrl+C** | `VideoWriter.release()` / file-close never ran on interrupt | Entire capture loop wrapped in `try/finally` — cleanup runs regardless of how the loop exits |
+| **FlightGear `--generic` motor-telemetry protocol mistaken for position sync** | `--generic` + `--fdm=external` carries only motor duty-cycle data (`/apm/motor_*`), not position/attitude — cannot move the aircraft | Reverted to `--native-fdm=socket,in` as the sole position-sync channel; motor telemetry (if wanted) is a separate, additive, cosmetic-only channel |
 
 ---
 
-## 🤝 Contributing
+## Roadmap
 
-Contributions are welcome! Please open an issue or pull request for:
-
-- Photorealistic scenery integration (OSM2City)
-- Object-level geolocation (pixel-to-ground projection)
-- Live dashboard interface (real-time web UI)
-- MATLAB UAV Toolbox migration path
-- Additional aircraft models (fixed-wing, VTOL)
-
-See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.
+- [ ] Re-verify FlightGear ↔ SITL sync end-to-end after the latest process-cleanup hardening
+- [ ] Object-level geolocation — project bounding boxes to ground coordinates using altitude + camera geometry
+- [ ] Live dashboard (telemetry + detection panes, real-time)
+- [ ] Quantitative evaluation — precision/recall/mAP@0.5 against a labeled frame sample; latency and throughput benchmarks
+- [ ] Richer scenery (e.g. OSM2City) to increase real-world object density beyond FlightGear's default terrain
 
 ---
 
-## 📜 License
+## Acknowledgments & Attribution
 
-This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
-
----
-
-## 🙏 Acknowledgements
-
-- [ArduPilot](https://ardupilot.org/) — open-source autopilot firmware
+- [ArduPilot](https://ardupilot.org/) — flight-control firmware and SITL
 - [FlightGear](https://www.flightgear.org/) — open-source flight simulator
-- [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics) — object detection framework
-- [MAVLink](https://mavlink.io/) — lightweight messaging protocol
-- [VisDrone Dataset](https://github.com/VisDrone/VisDrone-Dataset) — aerial imagery benchmark
-- Aerospace Engineering Department, Air Force Institute of Technology, Kaduna
+- [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics)
+- [VisDrone Dataset](https://github.com/VisDrone/VisDrone-Dataset) (Zhu et al.)
+- [`mshamrai/yolov8n-visdrone`](https://huggingface.co/mshamrai/yolov8n-visdrone) — pretrained checkpoint used directly
+- [MAVLink](https://mavlink.io/) / [pymavlink](https://github.com/ArduPilot/pymavlink)
+
+Development was assisted by AI tools (Claude, Grok) for debugging support and documentation drafting; all engineering decisions, verification, and testing were carried out and confirmed by the author.
 
 ---
 
-## 📧 Contact
+## Author
 
-**Mohammed Bello Sani** — mohammed.sani@student.afit.edu.ng  
-**Project Supervisor:** Group Captain Godwin Abbe — abbe.godwin@afit.edu.ng
+**Mohammed Bello Sani** — Aerospace Engineering, Air Force Institute of Technology (AFIT), Kaduna, Nigeria
+Portfolio: [smbello.vercel.app](https://smbello.vercel.app) · GitHub: [@Sm-bello](https://github.com/Sm-bello)
 
----
+## License
 
-*Built with discipline, open-source tools, and zero hardware cost.*
+MIT — see [LICENSE](LICENSE).
