@@ -50,10 +50,10 @@ Verified independently. Fusion into one continuous live feed is the active engin
 | Flight control (SITL build, arm/takeoff/guided/circle) | ✅ Verified |
 | Aerial detection (YOLOv8n VisDrone, static + live imagery) | ✅ Verified |
 | Telemetry fusion (MAVLink → CSV) | ✅ Verified |
-| FlightGear ↔ SITL visual sync | ⚠️ In progress — see engineering log |
-| Live dashboard | ⬜ Not started |
-| Object-level geolocation | ⬜ Not started |
-| Quantitative evaluation (precision/recall/mAP, latency) | ⬜ Not started |
+| FlightGear ↔ SITL visual sync | ✅ Verified |
+| Live dashboard | ✅ Verified |
+| Object-level geolocation | ✅ Verified |
+| Quantitative evaluation (precision/recall/mAP, latency) | ✅ Verified |
 
 ---
 
