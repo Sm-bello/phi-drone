@@ -15,52 +15,46 @@ wsl -d Ubuntu bash -c "pkill -f sim_vehicle.py; pkill -f arducopter; pkill -f ma
 timeout /t 3 >nul
 
 :: ============================================================
-:: 1. FlightGear (visual anchor) - WITH DAYTIME FIX
+:: 1. FlightGear (visual anchor + synthetic camera source)
 :: ============================================================
-echo [1/4] Launching FlightGear (Daytime Fixed)...
+echo [1/4] Launching FlightGear...
 start "FlightGear" "C:\Program Files\FlightGear 2024.1\bin\fgfs.exe" ^
 --fg-aircraft="C:\FlightGearAircraft" ^
 --aircraft=arducopter ^
 --airport=KSFO ^
 --native-fdm=socket,in,30,0.0.0.0,5503,udp ^
 --fdm=external ^
---geometry=900x650 ^
+--geometry=1024x768 ^
 --timeofday=noon ^
 --time-offset=0 ^
 --disable-hud-3d ^
 --disable-horizon-effect ^
---disable-random-objects ^
---disable-ai-models ^
---fog-disable ^
 --wind=0@0 ^
---disable-terrasync ^
---disable-real-weather-fetch ^
---prop:/sim/time/utc-offset=0 ^
---prop:/environment/visibility=40000 ^
---prop:/sim/weather/enabled=0 ^
---prop:/sim/rendering/precipitation-enable=false ^
---prop:/sim/time/frozen=true
+--enable-terrasync ^
+--prop:/scenery/use-terrain=true ^
+--prop:/scenery/buildings=true ^
+--prop:/scenery/trees=true
 
 echo.
 echo Waiting 45 seconds for FlightGear to fully load scenery...
-echo (This may take longer on first run while terrain caches build)
+echo (Terrasync is enabled - first run at a new airport may take longer while scenery downloads)
 timeout /t 45 >nul
 
 :: ============================================================
-:: 2. SITL + MAVProxy (Your working command)
+:: 2. SITL + MAVProxy
 :: ============================================================
 echo [2/4] Launching ArduPilot SITL in WSL2...
-start "SITL + MAVProxy" wsl -d Ubuntu bash -c "cd ~/ardupilot/ArduCopter && ../Tools/autotest/sim_vehicle.py --map --console --enable-fgview -A '--fg 127.0.0.1'"
+start "SITL + MAVProxy" wsl -d Ubuntu --cd ~/ardupilot/ArduCopter -e bash -ic "exec ../Tools/autotest/sim_vehicle.py --map --console --enable-fgview -A '--fg 127.0.0.1' -L KSFO --speedup 1"
 
 echo.
 echo Waiting 30 seconds for SITL to initialize and sync with FlightGear...
 timeout /t 30 >nul
 
 :: ============================================================
-:: 3. Detection Pipeline (Anaconda)
+:: 3. Detection Pipeline
 :: ============================================================
 echo [3/4] Launching YOLOv8 Detection + Telemetry Logger...
-start "Detection Pipeline" cmd /k "conda activate aerospace && cd /d C:\Users\User\Desktop\COMPLETED_PROJECTS\Drone_Sim && python detect_and_log_unified.py"
+start "Detection Pipeline" cmd /k "cd /d C:\Users\User\Desktop\COMPLETED_PROJECTS\Drone_Sim && C:\Users\User\anaconda3\Scripts\activate.bat aerospace && python phi_drone_detect.py"
 
 echo.
 :: ============================================================
