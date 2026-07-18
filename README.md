@@ -122,12 +122,15 @@ FlightGear's default scenery lacks photorealistic ground-object models, so the Y
 ## Citation
 
 ```bibtex
-@article{sani2026phidrone,
-  title   = {PHI-DRONE: An Integrated Open-Source Simulation Framework for UAV Reconnaissance with Telemetry-Vision Fusion},
-  author  = {Sani, Mohammed Bello and Ibrahim, Tumsah Usman},
-  journal = {SoftwareX},
-  year    = {2026},
-  note    = {Manuscript under review}
+@misc{phi_drone_2026,
+  author       = {{Air Force Institute of Technology, Kaduna, Nigeria}},
+  title        = {Sm-bello/phi-drone: PHI-DRONE v1.0.0},
+  year         = {2026},
+  month        = {7},
+  day          = {18},
+  howpublished = {Zenodo},
+  doi          = {10.5281/zenodo.21433215},
+  url          = {https://doi.org/10.5281/zenodo.21433215}
 }
 ```
 *(BibTeX will be updated with volume/DOI upon acceptance.)*
