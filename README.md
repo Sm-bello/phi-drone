@@ -14,7 +14,8 @@ PHI-DRONE connects a real flight-control firmware (ArduPilot SITL) to a 3D rende
 
 ## Architecture
 
-![Architecture](docs/Figure_1_architecture.png)
+<img width="1693" height="929" alt="Figure_1_architecture" src="https://github.com/user-attachments/assets/5e04da2b-fae9-42f7-8c52-0e12a3a4d078" />
+
 
 | Subsystem | Runs on | Role |
 |---|---|---|
